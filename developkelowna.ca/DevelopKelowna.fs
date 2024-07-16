@@ -113,75 +113,53 @@ let getProject (name: string) =
 
     let address =
         fields
-        |> List.choose (fun x ->
-            match x with
+        |> List.choose (function
             | Address a -> Some a
             | _ -> None)
         |> List.exactlyOne
 
+    let extractField f =
+        fields |> List.choose f |> exactlyOneOrNone
+
     let developer =
-        fields
-        |> List.choose (fun x ->
-            match x with
+        extractField (function
             | Developer d -> Some d
             | _ -> None)
-        |> exactlyOneOrNone
 
     let architect =
-        fields
-        |> List.choose (fun x ->
-            match x with
+        extractField (function
             | Architect a -> Some a
             | _ -> None)
-        |> exactlyOneOrNone
 
     let status =
-        fields
-        |> List.choose (fun x ->
-            match x with
+        extractField (function
             | Status s -> Some s
             | _ -> None)
-        |> exactlyOneOrNone
 
     let salesStatus =
-        fields
-        |> List.choose (fun x ->
-            match x with
+        extractField (function
             | SalesStatus s -> Some s
             | _ -> None)
-        |> exactlyOneOrNone
 
     let year =
-        fields
-        |> List.choose (fun x ->
-            match x with
+        extractField (function
             | Year y -> Some y
             | _ -> None)
-        |> exactlyOneOrNone
 
     let storeys =
-        fields
-        |> List.choose (fun x ->
-            match x with
+        extractField (function
             | Storeys s -> Some s
             | _ -> None)
-        |> exactlyOneOrNone
 
     let units =
-        fields
-        |> List.choose (fun x ->
-            match x with
+        extractField (function
             | Units u -> Some u
             | _ -> None)
-        |> exactlyOneOrNone
 
     let website =
-        fields
-        |> List.choose (fun x ->
-            match x with
+        extractField (function
             | Website w -> Some w
             | _ -> None)
-        |> exactlyOneOrNone
 
     { Address = address
       Developer = developer
