@@ -4,7 +4,9 @@ open FSharp.Data
 open Microsoft.FSharp.Reflection
 
 type MapJson =
-    JsonProvider<"https://developkelowna.ca/map/data?ne_lat=49.9599&ne_lng=-119.1991&sw_lat=49.8116&sw_lng=-119.7923&status[]=0&status[]=3&status[]=1&status[]=2&type[]=1&type[]=2&type[]=3&type[]=4">
+    JsonProvider<
+        "https://developkelowna.ca/map/data?ne_lat=49.9599&ne_lng=-119.1991&sw_lat=49.8116&sw_lng=-119.7923&status[]=0&status[]=3&status[]=1&status[]=2&type[]=1&type[]=2&type[]=3&type[]=4"
+     >
 
 type ProjectHtml = HtmlProvider<"https://developkelowna.ca/projects/1333-bertram">
 
@@ -77,13 +79,11 @@ let exactlyOneOrNone (xs: 'a list) =
 
 let getProject (name: string) =
     let project =
-        let p =
-            ProjectHtml
-                .Load($"https://developkelowna.ca/projects/{name}")
+        let p = ProjectHtml.Load($"https://developkelowna.ca/projects/{name}")
         let first = p.Html.CssSelect(".card-body.fs-5 > div")
         let second = p.Html.CssSelect(".card-body.pt-2 > div")
         first @ second
-    
+
     let fields =
         project
         |> List.map flattenHtmlNode
@@ -91,8 +91,8 @@ let getProject (name: string) =
             | [ "Address:"; address ] -> [ Address address ]
             | [ "Architect:"; architect ] -> [ Architect architect ]
             | [ "Developer:"; developer ] -> [ Developer developer ]
-            | [ "Developer:"; developer; "Architect:"; architect ] -> [Developer developer; Architect architect]
-            | "Sales Status:"::salesStatus::_ -> [ SalesStatus.fromString salesStatus |> Field.SalesStatus ]
+            | [ "Developer:"; developer; "Architect:"; architect ] -> [ Developer developer; Architect architect ]
+            | "Sales Status:" :: salesStatus :: _ -> [ SalesStatus.fromString salesStatus |> Field.SalesStatus ]
             | [ "Status:"; status; "(Application file)" ]
             | [ "Status:"; status ] -> [ Status.fromString status |> Field.Status ]
             | [ "Status:"; status; year; "(Application file)" ]
@@ -106,9 +106,9 @@ let getProject (name: string) =
             | [ "Storeys:"; storeys ] -> [ int storeys |> Storeys ]
             | [ "Storeys:"; storeys; "Units:"; units ] -> [ int storeys |> Storeys; int units |> Units ]
             | [ "Website:"; website ] -> [ Website website ]
-            | [""] -> []
-            | [""; ""; ""; ""] -> []
-            | [""; ""; ""; ""; " 1 "] -> []
+            | [ "" ] -> []
+            | [ ""; ""; ""; "" ] -> []
+            | [ ""; ""; ""; ""; " 1 " ] -> []
             | xs -> failwith $"Invalid fields %A{xs}")
 
     let address =
@@ -126,7 +126,7 @@ let getProject (name: string) =
             | Developer d -> Some d
             | _ -> None)
         |> exactlyOneOrNone
-     
+
     let architect =
         fields
         |> List.choose (fun x ->
@@ -142,7 +142,7 @@ let getProject (name: string) =
             | Status s -> Some s
             | _ -> None)
         |> exactlyOneOrNone
-    
+
     let salesStatus =
         fields
         |> List.choose (fun x ->
