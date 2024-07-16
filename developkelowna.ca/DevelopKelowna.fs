@@ -4,7 +4,7 @@ open FSharp.Data
 open Microsoft.FSharp.Reflection
 
 type MapJson =
-    JsonProvider<"https://developkelowna.ca/map/data?ne_lat=49.979&ne_lng=-119.199&sw_lat=49.792&sw_lng=-119.792">
+    JsonProvider<"https://developkelowna.ca/map/data?ne_lat=49.9599&ne_lng=-119.1991&sw_lat=49.8116&sw_lng=-119.7923&status[]=0&status[]=3&status[]=1&status[]=2&type[]=1&type[]=2&type[]=3&type[]=4">
 
 type ProjectHtml = HtmlProvider<"https://developkelowna.ca/projects/1333-bertram">
 
@@ -51,16 +51,18 @@ type Field =
     | Units of int
     | Website of string
     | SalesStatus of SalesStatus
+    | Architect of string
 
 type Project =
     { Address: string
-      Developer: Option<string>
-      SalesStatus: Option<SalesStatus>
-      Status: Status
-      Year: Option<int>
-      Storeys: int
-      Units: Option<int>
-      Website: Option<string> }
+      Developer: option<string>
+      Architect: option<string>
+      Status: option<Status>
+      SalesStatus: option<SalesStatus>
+      Year: option<int>
+      Storeys: option<int>
+      Units: option<int>
+      Website: option<string> }
 
 let rec flattenHtmlNode (node: HtmlNode) =
     match node.Elements() with
@@ -75,17 +77,22 @@ let exactlyOneOrNone (xs: 'a list) =
 
 let getProject (name: string) =
     let project =
-        ProjectHtml
-            .Load($"https://developkelowna.ca/projects/{name}")
-            .Html.CssSelect(".pt-2 > .mt-3")
-
+        let p =
+            ProjectHtml
+                .Load($"https://developkelowna.ca/projects/{name}")
+        let first = p.Html.CssSelect(".card-body.fs-5 > div")
+        let second = p.Html.CssSelect(".card-body.pt-2 > div")
+        first @ second
+    
     let fields =
         project
         |> List.map flattenHtmlNode
         |> List.collect (function
             | [ "Address:"; address ] -> [ Address address ]
+            | [ "Architect:"; architect ] -> [ Architect architect ]
             | [ "Developer:"; developer ] -> [ Developer developer ]
-            | [ "Sales Status:"; salesStatus ] -> [ SalesStatus.fromString salesStatus |> Field.SalesStatus ]
+            | [ "Developer:"; developer; "Architect:"; architect ] -> [Developer developer; Architect architect]
+            | "Sales Status:"::salesStatus::_ -> [ SalesStatus.fromString salesStatus |> Field.SalesStatus ]
             | [ "Status:"; status; "(Application file)" ]
             | [ "Status:"; status ] -> [ Status.fromString status |> Field.Status ]
             | [ "Status:"; status; year; "(Application file)" ]
@@ -99,6 +106,9 @@ let getProject (name: string) =
             | [ "Storeys:"; storeys ] -> [ int storeys |> Storeys ]
             | [ "Storeys:"; storeys; "Units:"; units ] -> [ int storeys |> Storeys; int units |> Units ]
             | [ "Website:"; website ] -> [ Website website ]
+            | [""] -> []
+            | [""; ""; ""; ""] -> []
+            | [""; ""; ""; ""; " 1 "] -> []
             | xs -> failwith $"Invalid fields %A{xs}")
 
     let address =
@@ -116,6 +126,14 @@ let getProject (name: string) =
             | Developer d -> Some d
             | _ -> None)
         |> exactlyOneOrNone
+     
+    let architect =
+        fields
+        |> List.choose (fun x ->
+            match x with
+            | Architect a -> Some a
+            | _ -> None)
+        |> exactlyOneOrNone
 
     let status =
         fields
@@ -123,7 +141,15 @@ let getProject (name: string) =
             match x with
             | Status s -> Some s
             | _ -> None)
-        |> List.exactlyOne
+        |> exactlyOneOrNone
+    
+    let salesStatus =
+        fields
+        |> List.choose (fun x ->
+            match x with
+            | SalesStatus s -> Some s
+            | _ -> None)
+        |> exactlyOneOrNone
 
     let year =
         fields
@@ -139,7 +165,7 @@ let getProject (name: string) =
             match x with
             | Storeys s -> Some s
             | _ -> None)
-        |> List.exactlyOne
+        |> exactlyOneOrNone
 
     let units =
         fields
@@ -157,18 +183,11 @@ let getProject (name: string) =
             | _ -> None)
         |> exactlyOneOrNone
 
-    let salesStatus =
-        fields
-        |> List.choose (fun x ->
-            match x with
-            | SalesStatus s -> Some s
-            | _ -> None)
-        |> exactlyOneOrNone
-
     { Address = address
       Developer = developer
-      SalesStatus = salesStatus
+      Architect = architect
       Status = status
+      SalesStatus = salesStatus
       Year = year
       Storeys = storeys
       Units = units
@@ -176,7 +195,8 @@ let getProject (name: string) =
 
 [<EntryPoint>]
 let main _ =
-    let projects = MapJson.GetSample().Projects |> Array.map (_.Slug >> getProject)
+    let projects = MapJson.GetSample().Projects
+    let projects = projects |> Array.map (_.Slug >> getProject)
     use sw = new System.IO.StreamWriter("projects.csv")
     let delimiter = ","
 
@@ -191,10 +211,11 @@ let main _ =
     |> Array.map (fun x ->
         [ $"\"{x.Address}\""
           x.Developer |> Option.defaultValue ""
+          x.Architect |> Option.defaultValue ""
+          x.Status |> Option.map (fun x -> x.ToString()) |> Option.defaultValue ""
           x.SalesStatus |> Option.map (fun x -> x.ToString()) |> Option.defaultValue ""
-          x.Status.ToString()
           x.Year |> Option.map string |> Option.defaultValue ""
-          x.Storeys.ToString()
+          x.Storeys |> Option.map string |> Option.defaultValue ""
           x.Units |> Option.map string |> Option.defaultValue ""
           x.Website |> Option.defaultValue "" ]
         |> String.concat delimiter)
