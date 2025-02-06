@@ -109,6 +109,7 @@ let getProject (name: string) =
             | [ "" ] -> []
             | [ ""; ""; ""; "" ] -> []
             | [ ""; ""; ""; ""; " 1 " ] -> []
+            | [ "Storeys:"; storeys; "Units:"; units; "Parking:"; _ ] -> [ int storeys |> Storeys; int units |> Units ]
             | xs -> failwith $"Invalid fields %A{xs}")
 
     let address =
